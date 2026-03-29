@@ -1,0 +1,10 @@
+/bin/
+/.mtj.tmp/
+/deployed/
+build.properties
+.mtj
+.settings
+.idea/runConfigurations
+proguard-local.cfg
+.idea/uiDesigner.xml
+proguard-local.cfg

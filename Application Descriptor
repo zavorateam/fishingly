@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+Nokia-MIDlet-Background-Event: pause
+MIDlet-Version: 0.9.0
+MicroEdition-Configuration: CLDC-1.1
+MIDlet-Name: Symusic
+Nokia-Scalable-Icon: /icon.svg
+Nokia-MIDlet-Scalable-Icon-1: /icon.svg
+MIDlet-Vendor: zavorateam
+MIDlet-Icon: /icon.png
+MIDlet-1: Symusic,/icon.png,symusic.MainMIDlet
+MIDlet-Description: Spotify-like Java music app
+MicroEdition-Profile: MIDP-2.0
+MIDlet-Jar-URL: sm-v1.jar
+MIDlet-Permissions: javax.microedition.io.Connector.http,javax.microedition.io.Connector.file.write,javax.microedition.io.Connector.file.read

@@ -1,0 +1,169 @@
+Exit
+Back
+OK
+Use RMS
+Open
+Reset
+No
+Yes
+Map
+API connection
+Keyboard help
+Settings
+About
+Other software
+Connecting
+Status
+Connected
+On
+Off
+Proxy
+Session's token
+Network access is forbidden for this app.
+Error. Please, try again.
+Exception
+Info
+We have compiled some of our other applications for you to access relevant services.
+New version available
+Search
+Menu
+Select
+To panels
+To map
+Close route
+Website
+Chat
+J2ME client for Yandex.Maps.
+Version
+Retry
+Close
+Couldn't receive the API token.
+Online functions are not available.
+Enable
+Internet access is forbidden.
+Tile downloading is disabled.
+File system access is forbidden.
+Cache is disabled.
+Zoom for points preview
+Show geolocation
+Only mark on map
+Status
+Status & coords
+Debug info
+Save tiles
+File system
+Download tiles
+Scheme, light theme
+Control buttons size (restart needed)
+Auto
+Tiles & search language (restart needed)
+Russian
+English
+Turkish
+UI language (restart needed)
+Network
+Cellular
+Geolocation mark kind
+Droplet
+Postscript
+Advertisement
+Cache manegement
+Delete all tiles
+Storage
+Tiles stored
+Not used
+Clearing cache
+App will close after completion.
+Navigation
+Zoom
+Geolocation
+App menu
+Map menu
+Left soft key
+Right soft key
+
+ s. passed
+Signal lost:
+ s.
+Sattelites
+Failure
+Failed to connect cache on memory card.
+Access denied on path
+Settings are damaged
+Reinstall the app.
+Waiting for signal
+Ready
+Unavailable
+Not supported
+Waiting for cache
+Cache reading
+In queue
+Downloading
+Unloaded
+Unavailable
+What's here?
+From here
+To here
+List
+Nothing selected.
+Found
+Card
+Show
+Network error
+Reset built route?
+Details
+Maneuveres
+Go!
+Route
+Your geolocation is not detected, so it can't be used.
+Cancel
+To enter route, your geolocation must be detected.
+Failed to build route.
+Not enough memory.
+Initialization
+Paint thread
+Caching failure
+Check available memory.
+By car
+By foot
+By p.t.
+Choose points on map.
+Choose departure point.
+Choose destination.
+From me
+To me
+Loading route...
+API access refused
+Reset your session via menu.
+To bookmarks
+By underground
+By suburban train
+Route is finished.
+Route finish
+Return to route
+Proceed to route start
+By public transport
+Take public transport
+Unknown segment
+Go on foot
+Bookmarks
+Delete
+Rename
+Bookmark name?
+Toggle geolocation view
+Map layer
+Satellite
+Hybrid
+Proxy tiles
+Proxy API
+Proxy prefix
+Check internet connection.
+Try to close other apps or restart this one.
+Name
+Description
+Coords
+Opening hours
+Website
+Phone
+Scheme, dark theme
+Update

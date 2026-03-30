@@ -22,13 +22,10 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
     
     // Экономика
     private int lives;
-    private int fishCount;
-    private int points;    // Очки для покупки снастей
+    private int fishCount; 
+    private int points;    
     
-    // Инвентарь рыб (хранит стоимость каждой пойманной рыбы)
     private int[] fishBag = new int[9999];
-    
-    // Текущий улов
     private int currentCatchValue = 0;
     private boolean isHeadshot = false;
 
@@ -57,7 +54,7 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
 
     private int animTick = 0;
 
-    // ВАШИ КООРДИНАТЫ
+    // ТОЧНЫЕ КООРДИНАТЫ
     private final int[] SPR_PENG_IDLE   = {53, 207, 52, 36};   
     private final int[] SPR_PENG_PULL   = {140, 204, 51, 36};  
     private final int[] SPR_PENG_SHOCK  = {438, 139, 52, 36};  
@@ -81,9 +78,9 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
 
         cmdSettings = new Command("Сложность: " + diffNames[difficulty], Command.SCREEN, 1);
         cmdRestart = new Command("Заново", Command.SCREEN, 2);
-        cmdSell1 = new Command("Продать рыбу", Command.ITEM, 3);
+        cmdSell1 = new Command("Продать 1 рыбу", Command.ITEM, 3);
         cmdSellAll = new Command("Продать всех", Command.ITEM, 4);
-        cmdBuyLife = new Command("Снасть (500очк.)", Command.ITEM, 5);
+        cmdBuyLife = new Command("Снасть (500 очк)", Command.ITEM, 5);
         cmdExit = new Command("Выход", Command.EXIT, 6);
 
         addCommand(cmdSettings);
@@ -267,7 +264,6 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
             hookY -= hookSpeed;
             if (hookY <= startHookY) {
                 if (hookState == 3) {
-                    // Успешно дотащили рыбу! Сохраняем её стоимость в рюкзак
                     if (fishCount < fishBag.length) {
                         fishBag[fishCount] = currentCatchValue;
                         fishCount++;
@@ -292,7 +288,6 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
                 if (Math.abs(hookX - objX[i]) < 25 && Math.abs(hookY - objY[i]) < 25) {
                     
                     if (objType[i] == 1 && hookState == 1) {
-                        // Рассчет попадания в голову (голова спереди по ходу движения)
                         int headOffset = objSpeed[i] > 0 ? 18 : -18;
                         int headX = objX[i] + headOffset;
                         boolean hitHead = (Math.abs(hookX - headX) < 15 && Math.abs(hookY - objY[i]) < 15);
@@ -302,10 +297,9 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
                             hookState = 3; 
                             isHeadshot = hitHead;
                             
-                            // Расчет очков за рыбу (Глубина)
                             float depthFactor = (float)(hookY - startHookY) / (getHeight() - startHookY);
-                            int basePoints = 10 + (int)(depthFactor * 90); // От 10 до 100
-                            if (isHeadshot) basePoints += basePoints / 2;  // +50% за голову
+                            int basePoints = 10 + (int)(depthFactor * 90); 
+                            if (isHeadshot) basePoints += basePoints / 2;  
                             
                             currentCatchValue = basePoints;
                             resetObject(i, 1); 
@@ -338,15 +332,33 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
         g.setColor(0x87CEEB); // Sky Blue
         g.fillRect(0, 0, getWidth(), startHookY);
 
-        // --- 1. Вода ---
+        // --- 1. Плавное колыхание воды ---
         if (imgWater != null) {
-            for (int wx = 0; wx < getWidth(); wx += imgWater.getWidth()) {
-                for (int wy = startHookY; wy < getHeight(); wy += imgWater.getHeight()) {
+            int ww = imgWater.getWidth();
+            int wh = imgWater.getHeight();
+            // Синусоидальное смещение для иллюзии волн
+            int offsetX = (int)(Math.sin(animTick * 0.02) * 8); 
+            int offsetY = (int)(Math.cos(animTick * 0.015) * 4);
+            
+            int startX = (offsetX % ww) - ww;
+            int startY = startHookY + (offsetY % wh) - wh;
+
+            // Ограничиваем отрисовку строго под уровнем льда
+            g.setClip(0, startHookY, getWidth(), getHeight() - startHookY);
+            for (int wx = startX; wx < getWidth(); wx += ww) {
+                for (int wy = startY; wy < getHeight(); wy += wh) {
                     g.drawImage(imgWater, wx, wy, Graphics.TOP | Graphics.LEFT);
                 }
             }
+            g.setClip(0, 0, getWidth(), getHeight()); // Сбрасываем ограничения
         } else {
-            g.setColor(0x0077CC); g.fillRect(0, startHookY, getWidth(), getHeight() - startHookY);
+            // Если текстуры нет - плавно пульсируем цветом (светлее-темнее)
+            double pulse = (Math.sin(animTick * 0.03) + 1.0) / 2.0; 
+            int r = 0;
+            int gr = 119 + (int)(20 * pulse);
+            int b = 204 + (int)(20 * pulse);
+            g.setColor((r << 16) | (gr << 8) | b); 
+            g.fillRect(0, startHookY, getWidth(), getHeight() - startHookY);
         }
 
         // --- 2. Водоросли ---
@@ -380,7 +392,7 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
         if (imgCooler != null) {
             g.drawImage(imgCooler, coolerX, coolerY, Graphics.TOP | Graphics.LEFT);
             if (!gameOver && fishCount > 0) {
-                g.setColor(0x006600); // Тёмно-зеленый текст для дня
+                g.setColor(0x006600); 
                 g.drawString("Продать", coolerX, coolerY - 15, Graphics.TOP | Graphics.LEFT);
             }
         }
@@ -414,14 +426,12 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
             g.setColor(0x000000); g.drawArc(hookX - 4, startHookY - 4, 8, 8, 0, 360);
 
             if (hookState == 3) {
-                // ПРАВИЛЬНАЯ ЛОГИКА ВЫТАСКИВАНИЯ (Смотрит вверх)
                 if (imgFish1 != null) {
                     drawImg(g, imgFish1, hookX, hookY, Sprite.TRANS_ROT270);
                     if (imgFishHead != null) {
                         drawImg(g, imgFishHead, hookX, hookY - 20, Sprite.TRANS_ROT270);
                     }
                 }
-                // Рисуем бонусный текст если в голову!
                 if (isHeadshot) {
                     g.setColor(0xFF0000);
                     g.drawString("+50% (В голову!)", hookX + 15, hookY - 15, Graphics.TOP | Graphics.LEFT);
@@ -433,14 +443,13 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
             }
         }
 
-        // --- 7. Объекты под водой (Исправленное отзеркаливание) ---
+        // --- 7. Объекты под водой ---
         for (int i = 0; i < maxObjects; i++) {
             if (!objActive[i]) continue;
             
             if (objType[i] == 1) { 
                 Image frame = ((animTick / 5) % 2 == 0) ? imgFish1 : imgFish2;
                 if (frame != null) {
-                    // Оригинальный спрайт смотрит ВПРАВО
                     int transform = (objSpeed[i] > 0) ? Sprite.TRANS_NONE : Sprite.TRANS_MIRROR;
                     int headOffset = (objSpeed[i] > 0) ? 20 : -20;
                     
@@ -470,21 +479,41 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
             g.setColor(0xFF0000);
             g.drawString("ИГРА ОКОНЧЕНА", getWidth()/2, getHeight()/2 - 10, Graphics.TOP | Graphics.HCENTER);
         }
-        g.setColor(0x000000); // Чёрный текст для дневного неба
-        g.drawString("Рыбы: " + fishCount, 5, 2, Graphics.TOP | Graphics.LEFT);
+        g.setColor(0x000000); 
+        g.drawString("Рыбы (Улов): " + fishCount, 5, 2, Graphics.TOP | Graphics.LEFT);
         g.drawString("Очки: " + points, 5, 20, Graphics.TOP | Graphics.LEFT);
         g.drawString("Снасти: " + lives, getWidth() - 5, 2, Graphics.TOP | Graphics.RIGHT);
+
+        // --- КНОПКА ПОКУПКИ СНАСТИ ---
+        if (!gameOver && points >= 500) {
+            g.setColor(0x006600); 
+            g.drawString("Купить", getWidth() - 5, 20, Graphics.TOP | Graphics.RIGHT);
+        }
     }
 
     protected void pointerPressed(int x, int y) {
         if (!gameOver) {
+            // Клик по кулеру -> Продажа рыбы
             int cw = imgCooler != null ? imgCooler.getWidth() : 50;
             int ch = imgCooler != null ? imgCooler.getHeight() : 25;
-            // Тап по кулеру продает ОДНУ рыбу
             if (x >= coolerX && x <= coolerX + cw && y >= coolerY - 15 && y <= coolerY + ch) {
                 sellFish(1);
                 return;
             }
+
+            // Клик по кнопке покупки в правом верхнем углу (под количеством снастей)
+            if (points >= 500) {
+                int buyW = 60; // Ширина сенсорной зоны кнопки
+                int buyH = 30; // Высота зоны
+                int buyX = getWidth() - buyW;
+                int buyY = 15;
+                if (x >= buyX && x <= getWidth() && y >= buyY && y <= buyY + buyH) {
+                    buyLife();
+                    return;
+                }
+            }
+
+            // Иначе - Закидываем удочку
             if (hookState == 0) {
                 hookX = x; 
                 hookState = 1; 
@@ -495,8 +524,8 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
     private void sellFish(int amount) {
         for (int i = 0; i < amount; i++) {
             if (fishCount > 0) {
-                fishCount--; // Жертвуем крутостью
-                points += fishBag[fishCount]; // Получаем очки
+                fishCount--; 
+                points += fishBag[fishCount]; 
             }
         }
     }

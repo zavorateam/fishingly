@@ -11,4 +11,4 @@ MIDlet-1: Fishingly,/icon.png,fishingly.FishingMIDlet
 MIDlet-Description: Ma first jme game
 MicroEdition-Profile: MIDP-2.0
 MIDlet-Jar-URL: fishigly.jar
-MIDlet-Permissions: javax.microedition.io.Connector.http,javax.microedition.io.Connector.file.write,javax.microedition.io.Connector.file.read
+MIDlet-Permissions: javax.microedition.io.Connector.http,javax.microedition.io.Connector.file.write,javax.microedition.io.Connector.file.readCommit: 5323535

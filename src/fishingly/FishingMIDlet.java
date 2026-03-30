@@ -1,4 +1,4 @@
-package fishing;
+package fishingly;
 
 import javax.microedition.midlet.MIDlet;
 import javax.microedition.lcdui.Display;

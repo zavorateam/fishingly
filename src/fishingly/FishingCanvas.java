@@ -61,11 +61,11 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
     private final int[] SPR_FISH_1      = {257, 126, 36, 18};  
     private final int[] SPR_FISH_2      = {257, 145, 36, 18};  
     private final int[] SPR_FISH_HEAD   = {73, 191, 19, 14};   
-    private final int[] SPR_JELLY_1     = {438, 70, 25, 30}; 
-    private final int[] SPR_JELLY_2     = {468, 70, 25, 30}; 
+    private final int[] SPR_JELLY_1     = {435, 67, 29, 29}; 
+    private final int[] SPR_JELLY_2     = {464, 67, 30, 30}; 
     private final int[] SPR_BOOT        = {100, 105, 28, 30};    
     private final int[] SPR_CAN         = {193, 146, 23, 28};   
-    private final int[] SPR_COOLER      = {227, 222, 38, 24}; 
+    private final int[] SPR_COOLER      = {227, 219, 38, 24}; 
     private final int[] SPR_ICE         = {100, 0, 333, 10};     
     private final int[] SPR_SEAWEED     = {0, 0, 100, 138}; 
 
@@ -89,6 +89,12 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
         setFullScreenMode(true);
         loadSprites();
         initGame();
+    }
+
+    // ИСПРАВЛЕНИЕ МЕРЦАНИЯ 1: Переопределяем системный paint
+    // Это не дает системе влезать в нашу двойную буферизацию GameCanvas
+    public void paint(Graphics g) {
+        // Ничего не делаем, вся отрисовка только через наш цикл run()
     }
 
     private Image extractSprite(Image src, int[] rect) {
@@ -155,8 +161,8 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
             
             Image baseJelly1 = extractSprite(rawAssets, SPR_JELLY_1);
             Image baseJelly2 = extractSprite(rawAssets, SPR_JELLY_2);
-            imgJelly1_L = rotateImage(baseJelly1, -67); imgJelly1_R = rotateImage(baseJelly1, 67);  
-            imgJelly2_L = rotateImage(baseJelly2, -67); imgJelly2_R = rotateImage(baseJelly2, 67);
+            imgJelly1_L = extractSprite(rawAssets, SPR_JELLY_1); imgJelly1_R = imgJelly1_L;
+            imgJelly2_L = extractSprite(rawAssets, SPR_JELLY_2); imgJelly2_R = imgJelly2_L;
 
             imgBoot    = extractSprite(rawAssets, SPR_BOOT);
             imgCan     = extractSprite(rawAssets, SPR_CAN);
@@ -328,9 +334,10 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
     }
 
     private void drawScreen(Graphics g) {
-        // --- 0. Дневное светлое небо ---
+        // ИСПРАВЛЕНИЕ МЕРЦАНИЯ 2: Очищаем весь экран целиком каждый кадр.
+        // Это уничтожает "шлейфы" и артефакты от движущихся рыб, если текстуры имеют прозрачность.
         g.setColor(0x87CEEB); // Sky Blue
-        g.fillRect(0, 0, getWidth(), startHookY);
+        g.fillRect(0, 0, getWidth(), getHeight()); 
 
         // --- 1. Плавное колыхание воды ---
         if (imgWater != null) {
@@ -460,11 +467,10 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
                 }
             } 
             else if (objType[i] == 2) { 
-                Image frame = (objSpeed[i] > 0) ? 
-                    (((animTick / 6) % 2 == 0) ? imgJelly1_R : imgJelly2_R) :
-                    (((animTick / 6) % 2 == 0) ? imgJelly1_L : imgJelly2_L);
-                if (frame != null) drawImg(g, frame, objX[i], objY[i], Sprite.TRANS_NONE);
-            } 
+                Image frame = ((animTick / 6) % 2 == 0) ? imgJelly1_L : imgJelly2_L;
+                int transform = (objSpeed[i] > 0) ? Sprite.TRANS_NONE : Sprite.TRANS_MIRROR;
+                if (frame != null) drawImg(g, frame, objX[i], objY[i], transform);
+            }
             else if (objType[i] == 3) { 
                 int transform = (objSpeed[i] > 0) ? Sprite.TRANS_NONE : Sprite.TRANS_MIRROR;
                 if (imgBoot != null) drawImg(g, imgBoot, objX[i], objY[i], transform);
@@ -476,11 +482,26 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
 
         // --- 8. UI ---
         if (gameOver) {
-            g.setColor(0xFF0000);
-            g.drawString("ИГРА ОКОНЧЕНА", getWidth()/2, getHeight()/2 - 10, Graphics.TOP | Graphics.HCENTER);
+            int centerX = getWidth() / 2;
+            int commonW = 130; // Единая ширина для обоих блоков
+            
+            int statusH = 30;
+            int statusY = getHeight() / 2 - 45;
+            g.setColor(0xFF0000); // Красный фон
+            g.fillRect(centerX - commonW / 2, statusY, commonW, statusH);
+            g.setColor(0xFFFFFF); // Белый текст
+            g.drawString("ИГРА ОКОНЧЕНА", centerX, statusY + 7, Graphics.TOP | Graphics.HCENTER);
+            
+            int btnH = 35;
+            int btnY = getHeight() / 2 - 5;
+            g.setColor(0x00AA00); // Зеленый фон
+            g.fillRect(centerX - commonW / 2, btnY, commonW, btnH);   
+            g.setColor(0xFFFFFF); // Белый текст
+            g.drawString("Начать заново", centerX, btnY + 9, Graphics.TOP | Graphics.HCENTER);
         }
+
         g.setColor(0x000000); 
-        g.drawString("Рыбы (Улов): " + fishCount, 5, 2, Graphics.TOP | Graphics.LEFT);
+        g.drawString("Рыбы: " + fishCount, 5, 2, Graphics.TOP | Graphics.LEFT);
         g.drawString("Очки: " + points, 5, 20, Graphics.TOP | Graphics.LEFT);
         g.drawString("Снасти: " + lives, getWidth() - 5, 2, Graphics.TOP | Graphics.RIGHT);
 
@@ -492,6 +513,19 @@ public class FishingCanvas extends GameCanvas implements Runnable, CommandListen
     }
 
     protected void pointerPressed(int x, int y) {
+        // НОВАЯ ФУНКЦИЯ: Обработка кнопки рестарта на тачскрине
+        if (gameOver) {
+            int btnW = 120;
+            int btnH = 35;
+            int btnX = getWidth() / 2 - btnW / 2;
+            int btnY = getHeight() / 2 - 5;
+            
+            if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+                initGame();
+            }
+            return;
+        }
+
         if (!gameOver) {
             // Клик по кулеру -> Продажа рыбы
             int cw = imgCooler != null ? imgCooler.getWidth() : 50;

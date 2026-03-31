@@ -1,13 +1,10 @@
 Manifest-Version: 1.0
 Nokia-MIDlet-Background-Event: pause
-MIDlet-Version: 1.0
+MIDlet-Version: 1.0.2
 MicroEdition-Configuration: CLDC-1.1
 MIDlet-Name: Fishingly
-Nokia-Scalable-Icon: /icon.svg
-Nokia-MIDlet-Scalable-Icon-1: /icon.svg
 MIDlet-Vendor: zavorateam
-MIDlet-Icon: /icon.png
-MIDlet-1: Fishingly,/icon.png,fishingly.FishingMIDlet
+MIDlet-1: Fishingly,,fishingly.FishingMIDlet
 MIDlet-Description: Ma first jme game
 MicroEdition-Profile: MIDP-2.0
 MIDlet-Jar-URL: fishigly.jar

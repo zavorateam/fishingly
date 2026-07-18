@@ -22,7 +22,7 @@ public class FishingMIDlet extends MIDlet {
 
     public void destroyApp(boolean unconditional) {
         if (canvas != null) {
-            canvas.saveGame();
+            canvas.commitSave();
             canvas.stop();
         }
     }

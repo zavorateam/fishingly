@@ -71,8 +71,37 @@ public class FishingCanvas extends GameCanvas implements Runnable {
     private int currentCatchDepth = 0;
 
     private int animTick = 0;
-
-    // КООРДИНАТЫ
+    private boolean leftPressed = false;
+    private boolean rightPressed = false;
+    private boolean dirtySave = false; // true если есть несохранённые изменения в RAM
+    
+    // DEBUG: Логирование нажатий клавиш для диагностики проблем управления
+    private static final boolean DEBUG_KEYS = true; // Установите false чтобы отключить логирование
+    private StringBuffer keyDebugLog = new StringBuffer();
+    private int keyDebugCount = 0;
+    private static final int MAX_KEY_LOG_SIZE = 50; // Максимум последних нажатий в логе
+    
+    // KEY MAPPING: Автоматическое определение маппинга для разных устройств
+    private int KEYCODE_UP = Canvas.KEY_NUM2;     // -50 (стандарт)
+    private int KEYCODE_DOWN = Canvas.KEY_NUM8;   // -56 (стандарт)
+    private int KEYCODE_LEFT = Canvas.KEY_NUM4;   // -52 (стандарт)
+    private int KEYCODE_RIGHT = Canvas.KEY_NUM6;  // -54 (стандарт)
+    private int KEYCODE_FIRE = Canvas.KEY_NUM5;   // -53 (стандарт)
+    private int KEYCODE_NUM1 = Canvas.KEY_NUM1;   // -49 (стандарт)
+    private int KEYCODE_NUM3 = Canvas.KEY_NUM3;   // -51 (стандарт)
+    
+    // Fallback маппинги для эмуляторов и Sony Ericsson W595
+    // Include Canvas constants, common positive ASCII codes and negative emulator/soft codes
+    private int[] KEYCODE_UP_ALTS = {Canvas.KEY_NUM2, -1, -50, 50};        // UP alternatives
+    private int[] KEYCODE_DOWN_ALTS = {Canvas.KEY_NUM8, -2, -56, 56};      // DOWN alternatives
+    private int[] KEYCODE_LEFT_ALTS = {Canvas.KEY_NUM4, -3, -52, 52};      // LEFT alternatives
+    private int[] KEYCODE_RIGHT_ALTS = {Canvas.KEY_NUM6, -4, -54, 54};     // RIGHT alternatives
+    private int[] KEYCODE_FIRE_ALTS = {Canvas.KEY_NUM5, -5, -53, 53};      // FIRE alternatives
+    // Additional alternatives for numeric keys and soft keys (observed on various Sony Ericsson models)
+    private int[] KEYCODE_NUM1_ALTS = {Canvas.KEY_NUM1, 11, 49, 55};       // 55 appeared in logs
+    private int[] KEYCODE_NUM3_ALTS = {Canvas.KEY_NUM3, 57, 51};           // 57 (ASCII '9') seen in logs
+    private int[] KEYCODE_SOFT_LEFT_ALTS = {-7};                           // SOFT_LEFT alternatives
+    private int[] KEYCODE_SOFT_RIGHT_ALTS = {-6};                          // SOFT_RIGHT alternatives
     private final int[] SPR_PENG_IDLE   = {53, 207, 52, 36};   
     private final int[] SPR_PENG_PULL   = {140, 204, 51, 36};  
     private final int[] SPR_PENG_SHOCK  = {438, 139, 52, 36};  
@@ -100,6 +129,10 @@ public class FishingCanvas extends GameCanvas implements Runnable {
         super(true);
         this.midlet = midlet;
         setFullScreenMode(true);
+        
+        // Print device information for debugging
+        printDeviceInfo();
+        
         loadGame(); 
         loadSprites();
         generateShadow();
@@ -108,7 +141,13 @@ public class FishingCanvas extends GameCanvas implements Runnable {
     public void paint(Graphics g) {}
 
     // --- RMS ---
+    // Обновление игровых данных в оперативной памяти. Запись во Flash откладываем до commitSave().
     public void saveGame() {
+        dirtySave = true;
+    }
+
+    // Физическая запись в RMS/Flash — выполняется только при окончании забега, выигрыше или при выходе из приложения.
+    public void commitSave() {
         try {
             RecordStore rs = RecordStore.openRecordStore("FishingSaveData", true);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -124,6 +163,7 @@ public class FishingCanvas extends GameCanvas implements Runnable {
             if (rs.getNumRecords() == 0) rs.addRecord(data, 0, data.length);
             else rs.setRecord(1, data, 0, data.length);
             rs.closeRecordStore();
+            dirtySave = false;
         } catch (Exception e) {}
     }
 
@@ -402,6 +442,14 @@ public class FishingCanvas extends GameCanvas implements Runnable {
     }
 
     private void updateGameLogic() {
+        // Horizontal movement when idle (support button holding)
+        if (gameState == STATE_GAME && hookState == 0 && (leftPressed || rightPressed)) {
+            int move = 4 + hookSpeedLevel;
+            if (leftPressed) hookX -= move;
+            if (rightPressed) hookX += move;
+            if (hookX < 10) hookX = 10;
+            if (hookX > getWidth() - 10) hookX = getWidth() - 10;
+        }
         if (hookState == 1) { 
             hookY += hookSpeed;
             if (hookY >= getHeight() - 10) hookState = 2; 
@@ -496,9 +544,9 @@ public class FishingCanvas extends GameCanvas implements Runnable {
                             lives--;
                             jellyDamageTakenThisPull = true;
                             if (lives <= 0) {
-                                gameOver = true;
-                                saveGame();
-                            }
+                                            gameOver = true;
+                                            commitSave();
+                                        }
                         }
                         hookState = 2; 
                     } 
@@ -589,7 +637,15 @@ public class FishingCanvas extends GameCanvas implements Runnable {
         if (currentSkin == 1 && imgPenguinNegative != null) activePenguin = imgPenguinNegative;
         
         if (gameOver && imgPenguinShock != null) activePenguin = imgPenguinShock;
-        else if (hookState == 3 && imgPenguinPull != null) activePenguin = imgPenguinPull;
+        else if (hookState == 3 && imgPenguinPull != null) {
+            // Use pull state but respect the current skin for negation
+            if (currentSkin == 1) {
+                // For negative skin, we stay with negative, not pulling (since we don't have negative-pull sprite)
+                activePenguin = imgPenguinNegative;
+            } else {
+                activePenguin = imgPenguinPull;
+            }
+        }
         
         if (activePenguin != null) g.drawImage(activePenguin, px, py, Graphics.TOP | Graphics.LEFT);
 
@@ -757,45 +813,201 @@ public class FishingCanvas extends GameCanvas implements Runnable {
 
     // --- УПРАВЛЕНИЕ ДЛЯ КНОПОЧНЫХ ТЕЛЕФОНОВ ---
     protected void keyPressed(int keyCode) {
+        // DEBUG: Log keycode for diagnostics
+        if (DEBUG_KEYS) {
+            debugLogKey(keyCode);
+        }
+        
         int action = getGameAction(keyCode);
+        
+        // Detect numeric keys - try multiple methods for compatibility
+        boolean key1 = isKeyCode(keyCode, Canvas.KEY_NUM1, '1', "1") || isInAlternatives(keyCode, KEYCODE_NUM1_ALTS);
+        boolean key2 = isKeyCode(keyCode, Canvas.KEY_NUM2, '2', "2") || action == Canvas.UP || isInAlternatives(keyCode, KEYCODE_UP_ALTS);
+        boolean key3 = isKeyCode(keyCode, Canvas.KEY_NUM3, '3', "3") || isInAlternatives(keyCode, KEYCODE_NUM3_ALTS);
+        boolean key4 = isKeyCode(keyCode, Canvas.KEY_NUM4, '4', "4") || action == Canvas.LEFT || isInAlternatives(keyCode, KEYCODE_LEFT_ALTS);
+        boolean key5 = isKeyCode(keyCode, Canvas.KEY_NUM5, '5', "5") || action == Canvas.FIRE || isInAlternatives(keyCode, KEYCODE_FIRE_ALTS);
+        boolean key6 = isKeyCode(keyCode, Canvas.KEY_NUM6, '6', "6") || action == Canvas.RIGHT || isInAlternatives(keyCode, KEYCODE_RIGHT_ALTS);
+        boolean key8 = isKeyCode(keyCode, Canvas.KEY_NUM8, '8', "8") || action == Canvas.DOWN || isInAlternatives(keyCode, KEYCODE_DOWN_ALTS);
+        boolean isLeftSoft = isSoftLeftKey(keyCode) || isInAlternatives(keyCode, KEYCODE_SOFT_LEFT_ALTS);
+        boolean isRightSoft = isSoftRightKey(keyCode) || isInAlternatives(keyCode, KEYCODE_SOFT_RIGHT_ALTS);
 
         if (gameState == STATE_MENU) {
-            if (action == Canvas.UP) { selectedMenuIdx--; if(selectedMenuIdx < 0) selectedMenuIdx = 3; }
-            else if (action == Canvas.DOWN) { selectedMenuIdx++; if(selectedMenuIdx > 3) selectedMenuIdx = 0; }
-            else if (action == Canvas.FIRE || keyCode == Canvas.KEY_NUM5) {
+            if (key2) { selectedMenuIdx--; if(selectedMenuIdx < 0) selectedMenuIdx = 3; }
+            else if (key8) { selectedMenuIdx++; if(selectedMenuIdx > 3) selectedMenuIdx = 0; }
+            else if (key5) {
                 if (selectedMenuIdx == 0) initGame();
                 else if (selectedMenuIdx == 1) { gameState = STATE_SHOP; selectedMenuIdx = 0; }
                 else if (selectedMenuIdx == 2) { gameState = STATE_SETTINGS; selectedMenuIdx = 0; }
                 else if (selectedMenuIdx == 3) midlet.exit();
             }
+            else if (key3 || isRightSoft) {
+                // Treat K3 and soft-right as "exit" when on the main menu
+                midlet.exit();
+            }
         } 
         else if (gameState == STATE_SETTINGS) {
-            if (action == Canvas.UP || action == Canvas.DOWN) { selectedMenuIdx = (selectedMenuIdx == 0) ? 1 : 0; }
-            else if (action == Canvas.FIRE || keyCode == Canvas.KEY_NUM5) {
+            if (key2 || key8) { selectedMenuIdx = (selectedMenuIdx == 0) ? 1 : 0; }
+            else if (key5) {
                 if (selectedMenuIdx == 0) difficulty = (difficulty + 1) % 3;
                 else { gameState = STATE_MENU; selectedMenuIdx = 2; }
             }
+            // ДОБАВЛЕНО: возврат в меню по 3 или правой софт-кнопке
+            else if (key3 || isRightSoft) {
+                gameState = STATE_MENU;
+                selectedMenuIdx = 2; // выделяем пункт "Настройки" при возврате
+            }
         }
         else if (gameState == STATE_SHOP) {
-            if (action == Canvas.UP) { selectedMenuIdx--; if(selectedMenuIdx < 0) selectedMenuIdx = 9; }
-            else if (action == Canvas.DOWN) { selectedMenuIdx++; if(selectedMenuIdx > 9) selectedMenuIdx = 0; }
-            else if (action == Canvas.FIRE || keyCode == Canvas.KEY_NUM5) {
+            if (key2) { selectedMenuIdx--; if(selectedMenuIdx < 0) selectedMenuIdx = 9; }
+            else if (key8) { selectedMenuIdx++; if(selectedMenuIdx > 9) selectedMenuIdx = 0; }
+            else if (key5) {
                 handleShopClick(selectedMenuIdx);
+            }
+            // ДОБАВЛЕНО: возврат в меню по 3 или правой софт-кнопке
+            else if (key3 || isRightSoft) {
+                saveGame();                 // сохраняем изменения магазина
+                gameState = STATE_MENU;
+                selectedMenuIdx = 1;        // выделяем пункт "Магазин" при возврате
             }
         }
         else if (gameState == STATE_GAME) {
-            if (keyCode == Canvas.KEY_NUM7) {
-                sellFish(); // Кнопка 7 - Продать 1 рыбу
+            if (key1 || isLeftSoft) {
+                sellFish();
             }
-            else if (action == Canvas.FIRE || keyCode == Canvas.KEY_NUM5) {
-                if (gameOver) { saveGame(); gameState = STATE_MENU; selectedMenuIdx = 0; }
-                else if (hookState == 0) { hookX = getWidth() / 2; hookState = 1; jellyDamageTakenThisPull = false; currentCatchValue = 0; currentCatchType = 0; isHeadshot = false; }
+            else if (key5 || key8) {
+                if (gameOver) { commitSave(); gameState = STATE_MENU; selectedMenuIdx = 0; }
+                else if (hookState == 0) { hookState = 1; jellyDamageTakenThisPull = false; currentCatchValue = 0; currentCatchType = 0; isHeadshot = false; }
             }
-            else if (keyCode == Canvas.KEY_NUM3 || action == Canvas.RIGHT) {
-                // Вызов меню
+            else if (key3 || isRightSoft) {
                 saveGame(); gameState = STATE_MENU; selectedMenuIdx = 0;
             }
+            else if (key4) {
+                leftPressed = true;
+                rightPressed = false;
+                if (hookState == 0) {
+                    hookX -= 4 + hookSpeedLevel;
+                    if (hookX < 10) hookX = 10;
+                }
+            }
+            else if (key6) {
+                rightPressed = true;
+                leftPressed = false;
+                if (hookState == 0) {
+                    hookX += 4 + hookSpeedLevel;
+                    if (hookX > getWidth() - 10) hookX = getWidth() - 10;
+                }
+            }
         }
+    }
+
+    protected void keyReleased(int keyCode) {
+        int action = getGameAction(keyCode);
+        boolean key4 = isKeyCode(keyCode, Canvas.KEY_NUM4, '4', "4") || action == Canvas.LEFT;
+        boolean key6 = isKeyCode(keyCode, Canvas.KEY_NUM6, '6', "6") || action == Canvas.RIGHT;
+        if (key4) leftPressed = false;
+        if (key6) rightPressed = false;
+    }
+
+    // Попытка определить левую софт-кнопку по имени (совместимо с разными телефонами)
+    private boolean isSoftLeftKey(int keyCode) {
+        try {
+            String name = getKeyName(keyCode);
+            if (name != null) {
+                String ln = name.toLowerCase();
+                if (ln.indexOf("soft") != -1 && ln.indexOf("left") != -1) return true;
+                if (ln.equals("softleft") || ln.equals("soft left") || ln.equals("left soft")) return true;
+            }
+        } catch (Exception e) {}
+        // Also accept known alternative codes for soft-left
+        if (isInAlternatives(keyCode, KEYCODE_SOFT_LEFT_ALTS)) return true;
+        return false;
+    }
+
+    // Detect soft-right keys similarly
+    private boolean isSoftRightKey(int keyCode) {
+        try {
+            String name = getKeyName(keyCode);
+            if (name != null) {
+                String ln = name.toLowerCase();
+                if (ln.indexOf("soft") != -1 && ln.indexOf("right") != -1) return true;
+                if (ln.equals("softright") || ln.equals("soft right") || ln.equals("right soft")) return true;
+            }
+        } catch (Exception e) {}
+        if (isInAlternatives(keyCode, KEYCODE_SOFT_RIGHT_ALTS)) return true;
+        return false;
+    }
+
+    // Improved key detection with multiple fallback strategies
+    private boolean isKeyCode(int keyCode, int canvasConstant, char charCode, String expectedName) {
+        // Method 1: Direct comparison with Canvas constant
+        if (keyCode == canvasConstant) return true;
+        
+        // Method 2: Character code comparison (ASCII)
+        if (keyCode == (int)charCode) return true;
+        
+        // Method 3: Check by key name (various formats)
+        if (keyNameMatches(keyCode, expectedName)) return true;
+        
+        // Method 4: Some emulators send numeric keyCodes 1-8
+        char digit = charCode;
+        if (keyCode == (int)(digit - 48)) return true; // '0' = 48, so '1' = 49, etc. Alternative format
+        
+        // Method 5: Some emulators have special mappings - try common alternatives
+        // For numeric keys, try checking with both positive and negative ranges
+        int digit_num = charCode - '0'; // Extract digit (1-8)
+        
+        // Some emulators: 1=49, 2=50, 3=51, 4=52, 5=53, 6=54, 7=55, 8=56
+        if (keyCode == 48 + digit_num) return true;
+        
+        // Some emulators: negative offset from -49
+        if (keyCode == -49 - (digit_num - 1)) return true; // -49, -50, -51, etc.
+        
+        return false;
+    }
+    
+    // Check if keyCode matches any in the alternatives list
+    private boolean isInAlternatives(int keyCode, int[] alternatives) {
+        if (alternatives == null) return false;
+        for (int i = 0; i < alternatives.length; i++) {
+            if (keyCode == alternatives[i]) return true;
+        }
+        return false;
+    }
+
+    private boolean keyNameMatches(int keyCode, String expected) {
+        try {
+            String name = getKeyName(keyCode);
+            if (name != null) {
+                String ln = name.toLowerCase();
+                String expected_lower = expected.toLowerCase();
+                
+                // Exact matches
+                if (ln.equals(expected_lower)) return true;
+                if (ln.equals("num" + expected_lower)) return true;
+                if (ln.equals("key" + expected_lower)) return true;
+                if (ln.equals("d" + expected_lower)) return true; // Some use D1, D2, D3, etc.
+                
+                // Partial matches
+                if (ln.indexOf(expected_lower) != -1) return true;
+                if (ln.indexOf("num" + expected_lower) != -1) return true;
+                if (ln.indexOf("digit" + expected_lower) != -1) return true;
+                
+                // Special case for directional keys mapped to numbers
+                if (expected_lower.equals("2")) {
+                    if (ln.indexOf("up") != -1) return true;
+                }
+                if (expected_lower.equals("8")) {
+                    if (ln.indexOf("down") != -1) return true;
+                }
+                if (expected_lower.equals("4")) {
+                    if (ln.indexOf("left") != -1) return true;
+                }
+                if (expected_lower.equals("6")) {
+                    if (ln.indexOf("right") != -1) return true;
+                }
+            }
+        } catch (Exception e) {}
+        return false;
     }
 
     private void handleShopClick(int idx) {
@@ -810,6 +1022,53 @@ public class FishingCanvas extends GameCanvas implements Runnable {
         }
         else if (idx == 8) { currentSkin = 0; }
         else if (idx == 9) { saveGame(); gameState = STATE_MENU; selectedMenuIdx = 1; }
+    }
+    
+    // Print device information for debugging key mapping issues
+    private void printDeviceInfo() {
+        try {
+            System.out.println("=== DEVICE INFO ===");
+            String microEditionProfile = System.getProperty("microedition.profiles");
+            String microEditionConfiguration = System.getProperty("microedition.configuration");
+            String device = System.getProperty("device.model");
+            String manufacturer = System.getProperty("device.manufacturer");
+            System.out.println("Profile: " + microEditionProfile);
+            System.out.println("Configuration: " + microEditionConfiguration);
+            System.out.println("Device: " + device);
+            System.out.println("Manufacturer: " + manufacturer);
+            System.out.println("Canvas.KEY_NUM1=" + Canvas.KEY_NUM1);
+            System.out.println("Canvas.KEY_NUM2=" + Canvas.KEY_NUM2);
+            System.out.println("Canvas.KEY_NUM3=" + Canvas.KEY_NUM3);
+            System.out.println("Canvas.KEY_NUM4=" + Canvas.KEY_NUM4);
+            System.out.println("Canvas.KEY_NUM5=" + Canvas.KEY_NUM5);
+            System.out.println("Canvas.KEY_NUM6=" + Canvas.KEY_NUM6);
+            System.out.println("Canvas.KEY_NUM8=" + Canvas.KEY_NUM8);
+            System.out.println("Canvas.UP=" + Canvas.UP);
+            System.out.println("Canvas.DOWN=" + Canvas.DOWN);
+            System.out.println("Canvas.LEFT=" + Canvas.LEFT);
+            System.out.println("Canvas.RIGHT=" + Canvas.RIGHT);
+            System.out.println("Canvas.FIRE=" + Canvas.FIRE);
+            System.out.println("=== KEY MAPPING REFERENCE ===");
+            System.out.println("KEYCODE_UP_ALTS: " + arrayToString(KEYCODE_UP_ALTS));
+            System.out.println("KEYCODE_DOWN_ALTS: " + arrayToString(KEYCODE_DOWN_ALTS));
+            System.out.println("KEYCODE_LEFT_ALTS: " + arrayToString(KEYCODE_LEFT_ALTS));
+            System.out.println("KEYCODE_RIGHT_ALTS: " + arrayToString(KEYCODE_RIGHT_ALTS));
+            System.out.println("KEYCODE_FIRE_ALTS: " + arrayToString(KEYCODE_FIRE_ALTS));
+            System.out.println("===== END DEVICE INFO =====");
+        } catch (Exception e) {
+            System.out.println("Device info error: " + e);
+        }
+    }
+    
+    private String arrayToString(int[] arr) {
+        if (arr == null) return "null";
+        StringBuffer sb = new StringBuffer("[");
+        for (int i = 0; i < arr.length; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(arr[i]);
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     // Оставлено для сенсорных экранов
@@ -861,5 +1120,72 @@ public class FishingCanvas extends GameCanvas implements Runnable {
             points += fishBag[fishCount]; 
             saveGame(); 
         }
+    }
+
+    // --- Debug helpers (used only for local testing/emulation) ---
+    public int debugGetSelectedMenuIdx() { return selectedMenuIdx; }
+    public boolean debugIsLeftPressed() { return leftPressed; }
+    public boolean debugIsRightPressed() { return rightPressed; }
+    public int debugGetFishCount() { return fishCount; }
+    public int debugGetPoints() { return points; }
+    public void debugSetGameState(int s) { gameState = s; }
+    public void debugSetFishCount(int c) { fishCount = c; }
+    public void debugSetFishBag(int idx, int val) { if (idx >= 0 && idx < fishBag.length) fishBag[idx] = val; }
+    public void debugPress(int keyCode) { keyPressed(keyCode); }
+    public void debugRelease(int keyCode) { keyReleased(keyCode); }
+    
+    // Key debug logging
+    private void debugLogKey(int keyCode) {
+        try {
+            String keyName = "";
+            try { keyName = getKeyName(keyCode); } catch (Exception e) {}
+            int action = getGameAction(keyCode);
+            String actionName = "";
+            if (action == Canvas.UP) actionName = "UP";
+            else if (action == Canvas.DOWN) actionName = "DOWN";
+            else if (action == Canvas.LEFT) actionName = "LEFT";
+            else if (action == Canvas.RIGHT) actionName = "RIGHT";
+            else if (action == Canvas.FIRE) actionName = "FIRE";
+            
+            // Detect which keys this keyCode matches
+            StringBuffer detected = new StringBuffer();
+            if (isKeyCode(keyCode, Canvas.KEY_NUM1, '1', "1") || isInAlternatives(keyCode, KEYCODE_NUM1_ALTS)) detected.append("K1 ");
+            if (isKeyCode(keyCode, Canvas.KEY_NUM2, '2', "2") || action == Canvas.UP) detected.append("K2/UP ");
+            if (isKeyCode(keyCode, Canvas.KEY_NUM3, '3', "3") || isInAlternatives(keyCode, KEYCODE_NUM3_ALTS)) detected.append("K3 ");
+            if (isKeyCode(keyCode, Canvas.KEY_NUM4, '4', "4") || action == Canvas.LEFT) detected.append("K4/LEFT ");
+            if (isKeyCode(keyCode, Canvas.KEY_NUM5, '5', "5") || action == Canvas.FIRE) detected.append("K5/FIRE ");
+            if (isKeyCode(keyCode, Canvas.KEY_NUM6, '6', "6") || action == Canvas.RIGHT) detected.append("K6/RIGHT ");
+            if (isKeyCode(keyCode, Canvas.KEY_NUM8, '8', "8") || action == Canvas.DOWN) detected.append("K8/DOWN ");
+            if (isSoftLeftKey(keyCode)) detected.append("SOFTLEFT ");
+            if (isSoftRightKey(keyCode)) detected.append("SOFTRIGHT ");
+            
+            String detectedStr = detected.length() > 0 ? detected.toString() : "UNKNOWN";
+            String log = "KC=" + keyCode + " Name='" + keyName + "' Action=" + action + "(" + actionName + ") Detected=[" + detectedStr + "]";
+            keyDebugLog.append(log + " | ");
+            keyDebugCount++;
+            
+            // Keep log size limited
+            if (keyDebugCount > MAX_KEY_LOG_SIZE) {
+                String fullLog = keyDebugLog.toString();
+                int pipeIdx = fullLog.indexOf("|");
+                if (pipeIdx > 0) {
+                    keyDebugLog = new StringBuffer(fullLog.substring(pipeIdx + 1));
+                    keyDebugCount--;
+                }
+            }
+            
+            System.out.println(log);
+        } catch (Exception e) {
+            System.out.println("Debug key error: " + e);
+        }
+    }
+    
+    public String debugGetKeyLog() {
+        return keyDebugLog.toString();
+    }
+    
+    public void debugClearKeyLog() {
+        keyDebugLog = new StringBuffer();
+        keyDebugCount = 0;
     }
 }

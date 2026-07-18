@@ -21,6 +21,14 @@ git rev-parse --short HEAD >> manifest.mf 2>/dev/null || echo "unknown" >> manif
 WORK_DIR=$(dirname "$0")
 cd "${WORK_DIR}" || exit 1
 
+# Extract version from Application Descriptor and fix jar URL
+VERSION=$(grep "MIDlet-Version:" "Application Descriptor" | sed 's/MIDlet-Version: //')
+if [ -z "${VERSION}" ]; then
+  echo "Unable to determine version from Application Descriptor" >&2
+  exit 1
+fi
+sed -i "s|^MIDlet-Jar-URL: .*|MIDlet-Jar-URL: ${APP}-${VERSION}.jar|" manifest.mf
+
 mkdir -p jar
 
 # STATIC VARS
@@ -51,8 +59,11 @@ JARS=("${LIB_DIR}"/*.jar)
 CLASSPATH=$(IFS=${PATHSEP}; echo "${JARS[*]}")
 shopt -u nullglob
 
+# Extract version from Application Descriptor
+VERSION=$(grep "MIDlet-Version:" "Application Descriptor" | sed 's/MIDlet-Version: //')
+
 # ACTION
-echo "Working on ${APP}"
+echo "Working on ${APP} (version: ${VERSION})"
 pwd
 echo "Creating or cleaning directories..."
 mkdir -p ./tmpclasses ./classes
@@ -91,21 +102,24 @@ else
 fi
 
 echo "Jaring preverified class files..."
-"${JAR}" cmf "${MANIFEST}" "${APP}.jar" -C ./classes .
+JAR_FILE="${APP}-${VERSION}.jar"
+"${JAR}" cmf "${MANIFEST}" "${JAR_FILE}" -C ./classes .
 
 if [ -d "${RES}" ]; then
-  "${JAR}" uf "${APP}.jar" -C "${RES}" .
+  "${JAR}" uf "${JAR_FILE}" -C "${RES}" .
 fi
 
-echo "Build done! ./${APP}.jar"
+echo "Build done! ./${JAR_FILE}"
 
 echo "Optimizing ${APP}..."
 chmod +x "${PROGUARD}"
 
+PROGUARD_OUT_JAR="${APP}-${VERSION}_obf.jar"
+
 # Формируем конфиг ProGuard
 cat proguard.cfg > cf.cfg
-echo "-injars ./${APP}.jar" >> cf.cfg
-echo "-outjar ./${APP}_obf.jar" >> cf.cfg
+echo "-injars ./${JAR_FILE}" >> cf.cfg
+echo "-outjar ./${PROGUARD_OUT_JAR}" >> cf.cfg
 echo "-printseeds ./${APP}_obf_seeds.txt" >> cf.cfg
 echo "-printmapping ./${APP}_obf_map.txt" >> cf.cfg
 echo "-libraryjars ${CLASSPATH}" >> cf.cfg
@@ -113,13 +127,14 @@ echo "-libraryjars ${CLASSPATH}" >> cf.cfg
 "${PROGUARD}" @cf.cfg
 
 # Перемещаем jar файлы
-mv "${APP}.jar" jar/
-mv "${APP}_obf.jar" jar/
+mv "${JAR_FILE}" jar/ 2>/dev/null || true
+mv "${PROGUARD_OUT_JAR}" jar/ 2>/dev/null || true
 
 # Генерируем JAD файл для обфусцированного (релизного) JAR
-JAR_SIZE=$(stat -c%s "jar/${APP}_obf.jar" 2>/dev/null || wc -c < "jar/${APP}_obf.jar")
-cp "${MANIFEST}" "jar/${APP}.jad"
-echo "MIDlet-Jar-Size: ${JAR_SIZE}" >> "jar/${APP}.jad"
-echo "MIDlet-Jar-URL: ${APP}_obf.jar" >> "jar/${APP}.jad"
+JAD_FILE="${APP}-${VERSION}.jad"
+JAR_SIZE=$(stat -c%s "jar/${PROGUARD_OUT_JAR}" 2>/dev/null || wc -c < "jar/${PROGUARD_OUT_JAR}")
+cp "${MANIFEST}" "jar/${JAD_FILE}"
+echo "MIDlet-Jar-Size: ${JAR_SIZE}" >> "jar/${JAD_FILE}"
+echo "MIDlet-Jar-URL: ${PROGUARD_OUT_JAR}" >> "jar/${JAD_FILE}"
 
 echo "Done! Check the /jar folder."

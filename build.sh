@@ -2,6 +2,7 @@
 
 # Define RELEASE=1 before running to build a release.
 APP="fishingly"
+RELEASE=1
 
 echo "Downloading and updating compiler..."
 if git clone https://github.com/Feodor0090/j2me_compiler.git 2>/dev/null; then
@@ -136,5 +137,8 @@ JAR_SIZE=$(stat -c%s "jar/${PROGUARD_OUT_JAR}" 2>/dev/null || wc -c < "jar/${PRO
 cp "${MANIFEST}" "jar/${JAD_FILE}"
 echo "MIDlet-Jar-Size: ${JAR_SIZE}" >> "jar/${JAD_FILE}"
 echo "MIDlet-Jar-URL: ${PROGUARD_OUT_JAR}" >> "jar/${JAD_FILE}"
+
+rm ./sources.list ./manifest.mf ./cf.cfg ./${APP}_obf_map.txt ./${APP}_obf_seeds.txt 2>/dev/null || true
+rm -rf ./tmpclasses ./classes 2>/dev/null || true
 
 echo "Done! Check the /jar folder."

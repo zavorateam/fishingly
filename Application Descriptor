@@ -1,11 +1,11 @@
 Manifest-Version: 1.0
 Nokia-MIDlet-Background-Event: pause
-MIDlet-Version: 1.1.5
+MIDlet-Version: 1.2.0
 MicroEdition-Configuration: CLDC-1.1
 MIDlet-Name: Fishingly
 MIDlet-Vendor: zavorateam
 MIDlet-1: Fishingly,,fishingly.FishingMIDlet
-MIDlet-Description: Ma first jme game
+MIDlet-Description: My first j2me game
 MicroEdition-Profile: MIDP-2.0
-MIDlet-Jar-URL: fishingly-1.1.3.jar
+MIDlet-Jar-URL: fishingly-1.2.0.jar
 MIDlet-Permissions: javax.microedition.io.Connector.http,javax.microedition.io.Connector.file.write,javax.microedition.io.Connector.file.read

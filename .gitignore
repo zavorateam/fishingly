@@ -5,10 +5,5 @@ build.properties
 .idea/runConfigurations
 proguard-local.cfg
 .idea/uiDesigner.xml
-tmpclasses/
-classes/
 jar/
 j2me_compiler/
-cf.cfg
-sources.list
-manifest.mf

@@ -100,8 +100,8 @@ public class FishingCanvas extends GameCanvas implements Runnable {
     // Additional alternatives for numeric keys and soft keys (observed on various Sony Ericsson models)
     private int[] KEYCODE_NUM1_ALTS = {Canvas.KEY_NUM1, 11, 49, 55};       // 55 appeared in logs
     private int[] KEYCODE_NUM3_ALTS = {Canvas.KEY_NUM3, 57, 51};           // 57 (ASCII '9') seen in logs
-    private int[] KEYCODE_SOFT_LEFT_ALTS = {-7};                           // SOFT_LEFT alternatives
-    private int[] KEYCODE_SOFT_RIGHT_ALTS = {-6};                          // SOFT_RIGHT alternatives
+    private int[] KEYCODE_SOFT_LEFT_ALTS = {-6};                           // SOFT_LEFT alternatives
+    private int[] KEYCODE_SOFT_RIGHT_ALTS = {-7};                          // SOFT_RIGHT alternatives
     private final int[] SPR_PENG_IDLE   = {53, 207, 52, 36};   
     private final int[] SPR_PENG_PULL   = {140, 204, 51, 36};  
     private final int[] SPR_PENG_SHOCK  = {438, 139, 52, 36};  
@@ -126,7 +126,7 @@ public class FishingCanvas extends GameCanvas implements Runnable {
     private final int[] SKIN_COSTS = {0, 10000, 5000, 15000, 20000, 25000};
 
     public FishingCanvas(FishingMIDlet midlet) {
-        super(true);
+        super(false); // Fixed buttons
         this.midlet = midlet;
         setFullScreenMode(true);
         
@@ -399,6 +399,44 @@ public class FishingCanvas extends GameCanvas implements Runnable {
         objSpeed[i] = (objX[i] > 0) ? -baseSpeed : baseSpeed; 
     }
 
+    // Спавн сорвавшейся рыбы обратно в воду в точку (x, y)
+    private void spawnEscapedFish(int x, int y, int type, int dir) {
+        if (type <= 0) return;
+
+        // Ищем свободный слот в массиве объектов
+        int freeSlot = -1;
+        for (int k = 0; k < maxObjects; k++) {
+            if (!objActive[k]) {
+                freeSlot = k;
+                break;
+            }
+        }
+
+        // Если все слоты заняты, переиспользуем любой объект обычного мусора/рыбы
+        if (freeSlot == -1) {
+            for (int k = 0; k < maxObjects; k++) {
+                if (objType[k] == 3 || objType[k] == 4) {
+                    freeSlot = k;
+                    break;
+                }
+            }
+        }
+
+        if (freeSlot != -1) {
+            objActive[freeSlot] = true;
+            objType[freeSlot] = type;
+            objX[freeSlot] = x;
+            objY[freeSlot] = y;
+
+            // Задаем скорость и направление, чтобы рыба сразу уплывала обратно
+            int speed = 1 + rnd.nextInt(3 + difficulty);
+            if (type == 6) speed += 3;
+            if (dir == 0) dir = 1;
+            
+            objSpeed[freeSlot] = dir * speed;
+        }
+    }
+
     private void manageCrabs() {
         int crabsCount = 0;
         for (int i = 0; i < maxObjects; i++) {
@@ -534,22 +572,26 @@ public class FishingCanvas extends GameCanvas implements Runnable {
                             hookState = 2; 
                         }
                     }
-                    else if (objType[i] == 2) {
+                    else if (objType[i] == 2) { // Медуза
                         if (hookState == 3) {
-                            // РЫБА СРЫВАЕТСЯ ПРИ ПОПАДАНИИ НА МЕДУЗУ
-                            hookState = 2;
+                            // РЫБА СРЫВАЕТСЯ С КРЮЧКА ПРИ ПОПАДАНИИ НА МЕДУЗУ!
+                            // Спавним рыбу обратно в воду в точку срыва (hookX, hookY)
+                            spawnEscapedFish(hookX, hookY, currentCatchType, currentCatchDir);
+
+                            hookState = 2; // Крючок поднимается пустым
                             currentCatchValue = 0;
+                            currentCatchType = 0;
                         }
                         if (!jellyDamageTakenThisPull) {
                             lives--;
                             jellyDamageTakenThisPull = true;
                             if (lives <= 0) {
-                                            gameOver = true;
-                                            commitSave();
-                                        }
+                                gameOver = true;
+                                commitSave();
+                            }
                         }
                         hookState = 2; 
-                    } 
+                    }
                     else if ((objType[i] == 3 || objType[i] == 4) && hookState == 1) {
                         hookState = 2; 
                     }
